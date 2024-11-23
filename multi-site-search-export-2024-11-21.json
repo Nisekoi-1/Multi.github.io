@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "timestamp": "2024-11-21T07:54:11.496Z",
+  "websites": {
+    "Games": {
+      "Ovagames": "https://ovagames.com/?s={query}",
+      "FitGirl": "https://fitgirl-repacks.site/?s={query}",
+      "Steamrip": "https://steamrip.com/?s={query}",
+      "Rutracker": "https://rutracker.net/forum/tracker.php?nm={query}",
+      "DODI Repacks": "https://dodi-repacks.site/?s={query}"
+    },
+    "Movies & TV Shows": {
+      "Torrent Galaxy": "https://tgx.rs/torrents.php?search={query}",
+      "Rutracker": "https://rutracker.net/forum/tracker.php?nm={query}",
+      "mkvcinemas": "https://mkvcinemas.app/?s={query}",
+      "Pahe": "https://pahe.ink/?s={query}",
+      "Olamovies": "https://app1.olamovies.download/?s={query}",
+      "UHDmovies": "https://uhdmovies.icu/search/{query}",
+      "1337x": "https://1337x.liquidx.workers.dev/srch?search={query}"
+    },
+    "Anime": {
+      "AnimeTosho": "https://animetosho.org/search?q={query}",
+      "Nyaa": "https://nyaa.si/?f=0&c=0_0&q={query}"
+    },
+    "Asian Drama": {
+      "mkvdrama": "https://mkvdrama.org/?s={query}"
+    }
+  }
+}

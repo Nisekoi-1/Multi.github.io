@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Site Search with Groups</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        #multiSiteSearchGUI {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            max-width: 800px;
+            margin: 0 auto;
+            border-radius: 8px;
+        }
+
+        .gui-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .search-section {
+            margin-bottom: 15px;
+        }
+
+        #searchQuery {
+            width: calc(100% - 16px);
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .group-toggles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .group-toggle {
+            background: #f0f0f0;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .group-toggle label {
+            cursor: pointer;
+        }
+
+        .divider {
+            border-top: 1px solid #eee;
+            margin: 15px 0;
+        }
+
+        .settings-section input, 
+        .settings-section select {
+            width: calc(100% - 16px);
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .group-section {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+            cursor: move;
+        }
+
+        .site-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .site-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            cursor: move;
+        }
+
+        .site-list li.dragging {
+            opacity: 0.5;
+        }
+
+        button {
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .remove-site, 
+        .remove-group {
+            background-color: #ff4444;
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .remove-site:hover, 
+        .remove-group:hover {
+            background-color: #cc0000;
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .export-section {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        #exportData, #importFile {
+            width: 100%;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        .dragover {
+            border: 2px dashed #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div id="multiSiteSearchGUI">
+        <div class="gui-header">Multi-Site Search Settings</div>
+        <div class="gui-body">
+            <div class="search-section">
+                <input type="text" id="searchQuery" placeholder="Enter search query..." />
+                <div class="group-toggles" id="groupToggles"></div>
+                <button id="searchBtn">Search Selected Groups</button>
+            </div>
+            <div class="divider"></div>
+            <div class="settings-section" style="display: none" id="settingsSection">
+                <div class="section-header">Add New Website</div>
+                <select id="groupSelect">
+                    <option value="">Select Group...</option>
+                    <option value="newGroup">+ Create New Group</option>
+                </select>
+                <input type="text" id="newGroupName" placeholder="New Group Name" style="display: none" />
+                <input type="text" id="siteName" placeholder="Website Name" />
+                <input type="text" id="siteURL" placeholder="Search URL (use {query} for the term)" />
+                <button id="addSite">Add Website</button>
+            </div>
+            <div class="group-list" id="groupList"></div>
+            <div class="button-row">
+                <button id="toggleSettings">Manage Websites</button>
+            </div>
+            <div class="export-section">
+                <h3>Export/Import Settings</h3>
+                <button id="exportBtn">Export Groups</button>
+                <input type="file" id="importFile" accept=".json">
+                <button id="importBtn">Import Groups</button>
+                <textarea id="exportData" rows="5" readonly placeholder="Exported data will appear here"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default website groups
+        const defaultWebsites = {
+            Games: {
+                Ovagames: "https://ovagames.com/?s=",
+                Steam: "https://store.steampowered.com/search/?term=",
+                GOG: "https://www.gog.com/en/games?query="
+            },
+            "TV Shows": {
+                Fitgirl: "https://fitgirl-repacks.site/?s=",
+                IMDB: "https://www.imdb.com/find/?q=",
+                "Rotten Tomatoes": "https://www.rottentomatoes.com/search?search="
+            },
+            Forums: {
+                Snahp: "https://fora.snahp.eu/search.php?keywords={query}&sf=titleonly"
+            }
+        };
+
+        // Load websites from localStorage or use defaults
+        let websites = JSON.parse(localStorage.getItem("websites")) || defaultWebsites;
+        let groupOrder = JSON.parse(localStorage.getItem("groupOrder")) || Object.keys(websites);
+
+        function saveWebsites() {
+            localStorage.setItem("websites", JSON.stringify(websites));
+            localStorage.setItem("groupOrder", JSON.stringify(groupOrder));
+        }
+
+        function updateGroupToggles() {
+            const container = document.getElementById("groupToggles");
+            container.innerHTML = "";
+            
+            groupOrder.forEach(groupName => {
+                const groupToggle = document.createElement("div");
+                groupToggle.className = "group-toggle";
+                groupToggle.innerHTML = `
+                    <label>
+                        <input type="checkbox" data-group="${groupName}">
+                        ${groupName}
+                    </label>
+                `;
+                container.appendChild(groupToggle);
+            });
+        }
+
+        function updateGroupList() {
+            const container = document.getElementById("groupList");
+            container.innerHTML = "";
+
+            groupOrder.forEach((groupName) => {
+                const sites = websites[groupName];
+                const groupDiv = document.createElement("div");
+                groupDiv.className = "group-section";
+                groupDiv.setAttribute('draggable', true);
+                groupDiv.dataset.group = groupName;
+                groupDiv.innerHTML = `
+                    <div class="group-header" draggable="true">
+                        ${groupName}
+                        <button class="remove-group" data-group="${groupName}">Remove Group</button>
+                    </div>
+                    <ul class="site-list">
+                        ${Object.entries(sites).map(([siteName, url]) => `
+                            <li draggable="true" data-group="${groupName}" data-site="${siteName}">
+                                ${siteName}
+                                <button class="remove-site" data-group="${groupName}" data-site="${siteName}">Remove</button>
+                            </li>
+                        `).join("")}
+                    </ul>
+                `;
+                container.appendChild(groupDiv);
+            });
+
+            setupDragAndDrop();
+            addRemoveEventListeners();
+        }
+
+        function addRemoveEventListeners() {
+            // Remove site buttons
+            document.querySelectorAll(".remove-site").forEach(button => {
+                button.addEventListener("click", (e) => {
+                    const group = e.target.dataset.group;
+                    const site = e.target.dataset.site;
+                    delete websites[group][site];
+                    if (Object.keys(websites[group]).length === 0) {
+                        delete websites[group];
+                        groupOrder = groupOrder.filter(g => g !== group);
+                    }
+                    saveWebsites();
+                    updateGroupList();
+                    updateGroupToggles();
+                    updateGroupSelect();
+                });
+            });
+
+            // Remove group buttons
+            document.querySelectorAll(".remove-group").forEach(button => {
+                button.addEventListener("click", (e) => {
+                    const group = e.target.dataset.group;
+                    delete websites[group];
+                    groupOrder = groupOrder.filter(g => g !== group);
+                    saveWebsites();
+                    updateGroupList();
+                    updateGroupToggles();
+                    updateGroupSelect();
+                });
+            });
+        }
+
+        function setupDragAndDrop() {
+            const groupSections = document.querySelectorAll('.group-section');
+            const siteListItems = document.querySelectorAll('.site-list li');
+
+            // Group reordering
+            groupSections.forEach(groupSection => {
+                groupSection.addEventListener('dragstart', dragStart);
+                groupSection.addEventListener('dragover', dragOver);
+                groupSection.addEventListener('drop', dropGroup);
+                groupSection.addEventListener('dragend', dragEnd);
+            });
+
+            // Site reordering within groups
+            siteListItems.forEach(item => {
+                item.addEventListener('dragstart', dragStart);
+                item.addEventListener('dragover', dragOver);
+                item.addEventListener('drop', dropSite);
+                item.addEventListener('dragend', dragEnd);
+            });
+        }
+
+        // Drag and drop helper functions
+        let draggedItem = null;
+
+        function dragStart(e) {
+            draggedItem = e.target;
+            e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+            setTimeout(() => e.target.classList.add('dragging'), 0);
+        }
+
+        function dragOver(e) {
+            e.preventDefault();
+            e.target.classList.add('dragover');
+        }
+
+        function dropGroup(e) {
+            e.preventDefault();
+            const dropTarget = e.currentTarget;
+            const draggedGroup = draggedItem.dataset.group;
+            const targetGroup = dropTarget.dataset.group;
+
+            if (draggedGroup && targetGroup && draggedGroup !== targetGroup) {
+                const draggedIndex = groupOrder.indexOf(draggedGroup);
+                const targetIndex = groupOrder.indexOf(targetGroup);
+
+                // Swap groups
+                [groupOrder[draggedIndex], groupOrder[targetIndex]] = [groupOrder[targetIndex], groupOrder[draggedIndex]];
+                
+                saveWebsites();
+                updateGroupList();
+                updateGroupToggles();
+            }
+
+            e.target.classList.remove('dragover');
+        }
+
+        function dropSite(e) {
+            e.preventDefault();
+            const dropTarget = e.target.closest('li');
+            
+            if (dropTarget && dropTarget !== draggedItem) {
+                const draggedGroup = draggedItem.dataset.group;
+                const targetGroup = dropTarget.dataset.group;
+                const draggedSite = draggedItem.dataset.site;
+                const targetSite = dropTarget.dataset.site;
+
+                if (draggedGroup === targetGroup) {
+                    // Reorder sites within the same group
+                    const sites = websites[targetGroup];
+                    const siteNames = Object.keys(sites);
+                    const draggedIndex = siteNames.indexOf(draggedSite);
+                    const targetIndex = siteNames.indexOf(targetSite);
+
+                    // Remove the dragged site and reinsert it at the new position
+                    const siteURL = sites[draggedSite];
+                    delete sites[draggedSite];
+                    
+                    // Create a new object with reordered sites
+                    const reorderedSites = {};
+                    siteNames.forEach((name, index) => {
+                        if (index === targetIndex) {
+                            if (draggedIndex < targetIndex) {
+                                reorderedSites[name] = sites[name];
+                                reorderedSites[draggedSite] = siteURL;
+                            } else {
+                                reorderedSites[draggedSite] = siteURL;
+                                reorderedSites[name] = sites[name];
+                            }
+                        } else if (name !== draggedSite) {
+                            reorderedSites[name] = sites[name];
+                        }
+                    });
+
+                    websites[targetGroup] = reorderedSites;
+                    saveWebsites();
+                    updateGroupList();
+                }
+            }
+
+            e.target.classList.remove('dragover');
+        }
+
+        function dragEnd(e) {
+            e.target.classList.remove('dragging', 'dragover');
+        }
+
+        function updateGroupSelect() {
+            const select = document.getElementById("groupSelect");
+            const currentValue = select.value;
+            
+            // Clear all options except the first two
+            while (select.options.length > 2) {
+                select.remove(2);
+            }
+
+            // Add current groups
+            groupOrder.forEach(groupName => {
+                const option = new Option(groupName, groupName);
+                select.add(option);
+            });
+
+            // Restore selected value if it still exists
+            if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
+                select.value = currentValue;
+            }
+        }
+
+        function performSearch() {
+            const query = document.getElementById("searchQuery").value.trim();
+            if (!query) {
+                alert("Please enter a search query");
+                return;
+            }
+
+            const selectedGroups = Array.from(document.querySelectorAll('.group-toggle input:checked'))
+                .map(checkbox => checkbox.dataset.group);
+
+            if (selectedGroups.length === 0) {
+                alert("Please select at least one group");
+                return;
+            }
+
+            selectedGroups.forEach(groupName => {
+                const sites = websites[groupName];
+                Object.entries(sites).forEach(([siteName, url]) => {
+                    // Replace {query} with the encoded search term
+                    const searchURL = url.replace('{query}', encodeURIComponent(query));
+                    window.open(searchURL, "_blank");
+                });
+            });
+        }
+
+        // Export functionality
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const exportTextarea = document.getElementById('exportData');
+            
+            // Create an export object with timestamp
+            const exportData = {
+                version: '1.1',
+                timestamp: new Date().toISOString(),
+                websites: websites,
+                groupOrder: groupOrder
+            };
+            // Convert to formatted JSON
+            const exportJson = JSON.stringify(exportData, null, 2);
+            
+            // Display in textarea
+            exportTextarea.value = exportJson;
+            // Optional: Create downloadable file
+            const blob = new Blob([exportJson], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `multi-site-search-export-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Import functionality
+        document.getElementById('importBtn').addEventListener('click', () => {
+            const importFile = document.getElementById('importFile');
+            const file = importFile.files[0];
+            
+            if (!file) {
+                alert('Please select a file to import');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // Validate import data
+                    if (!importedData.websites || typeof importedData.websites !== 'object') {
+                        throw new Error('Invalid import file format');
+                    }
+                    // Confirm import
+                    const confirmImport = confirm('Are you sure you want to replace existing groups and websites?');
+                    
+                    if (confirmImport) {
+                        // Replace existing websites
+                        websites = importedData.websites;
+                        
+                        // Update group order if exists, otherwise use default
+                        groupOrder = importedData.groupOrder || Object.keys(websites);
+                        
+                        // Save to localStorage
+                        saveWebsites();
+                        
+                        // Update UI
+                        updateGroupToggles();
+                        updateGroupList();
+                        updateGroupSelect();
+                        alert('Import successful!');
+                        importFile.value = ''; // Clear file input
+                    }
+                } catch (error) {
+                    alert('Error importing file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Initialize the GUI
+        updateGroupToggles();
+        updateGroupList();
+        updateGroupSelect();
+
+        // Event Listeners
+        document.getElementById("searchBtn").addEventListener("click", performSearch);
+        document.getElementById("searchQuery").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") performSearch();
+        });
+
+        document.getElementById("toggleSettings").addEventListener("click", () => {
+            const settingsSection = document.getElementById("settingsSection");
+            settingsSection.style.display = settingsSection.style.display === "none" ? "block" : "none";
+        });
+
+        document.getElementById("groupSelect").addEventListener("change", (e) => {
+            const newGroupInput = document.getElementById("newGroupName");
+            newGroupInput.style.display = e.target.value === "newGroup" ? "block" : "none";
+        });
+
+        document.getElementById("addSite").addEventListener("click", () => {
+            const groupSelect = document.getElementById("groupSelect");
+            const newGroupName = document.getElementById("newGroupName");
+            const siteName = document.getElementById("siteName");
+            const siteURL = document.getElementById("siteURL");
+
+            let groupName = groupSelect.value;
+            if (groupName === "newGroup") {
+                groupName = newGroupName.value.trim();
+                if (!groupName) {
+                    alert("Please enter a group name");
+                    return;
+                }
+            }
+
+            if (!groupName || !siteName.value.trim() || !siteURL.value.trim()) {
+                alert("All fields are required");
+                return;
+            }
+
+            if (!websites[groupName]) {
+                websites[groupName] = {};
+                // Add new group to group order if it doesn't exist
+                if (!groupOrder.includes(groupName)) {
+                    groupOrder.push(groupName);
+                }
+            }
+
+            websites[groupName][siteName.value.trim()] = siteURL.value.trim();
+            saveWebsites();
+            updateGroupList();
+            updateGroupToggles();
+            updateGroupSelect();
+
+            // Clear inputs
+            siteName.value = "";
+            siteURL.value = "";
+            newGroupName.value = "";
+            newGroupName.style.display = "none";
+            groupSelect.value = "";
+        });
+    </script>
+</body>
+</html>
