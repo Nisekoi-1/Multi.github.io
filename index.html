@@ -221,7 +221,8 @@
   }
 };
         // Load websites from localStorage or use defaults
-        let websites = JSON.parse(localStorage.getItem("websites")) || defaultWebsites;
+        let websites = defaultWebsites; // Force reset to defaults
+        localStorage.setItem("websites", JSON.stringify(websites)); // Save defaults
         let groupOrder = JSON.parse(localStorage.getItem("groupOrder")) || Object.keys(websites);
 
         function saveWebsites() {
